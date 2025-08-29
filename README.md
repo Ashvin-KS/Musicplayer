@@ -4,10 +4,12 @@ This is a music streaming web application with a React frontend and a Flask back
 
 ## Features
 
--   **YouTube Search:** Search for music and playlists on YouTube.
--   **Playlist Management:** View and manage playlists.
--   **Audio Streaming:** Stream audio from YouTube videos with a Spotify-style playbar that includes play, pause, next, previous, and a draggable progress bar.
--   **Responsive UI:** A modern and responsive user interface.
+-   **YouTube Search:** Search for music and playlists on YouTube, with dedicated components for the search bar and search results.
+-   **Playlist Management:** View and manage playlists, with a clear and intuitive interface.
+-   **Embedded Video Player:** An embedded video player to watch the music videos.
+-   **Audio Streaming:** Stream audio from YouTube videos with a feature-rich, Spotify-style playbar that includes play, pause, next, previous, and a draggable progress bar.
+-   **Modern UI:** A modern and responsive user interface with left and right sidebars for easy navigation and content discovery.
+-   **Error Handling:** Displays error messages for a better user experience.
 
 ## Setup and Installation
 
