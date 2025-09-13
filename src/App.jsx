@@ -11,7 +11,7 @@ import {
 } from './components';
 import { getArtistInfo } from './components/aii'; // Re-add import getArtistInfo
 
-const API_BASE = 'http://localhost:5000'; // Adjust if Flask runs elsewhere
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 // LocalStorage keys
 const LS_PLAYLISTS = 'musicapp_playlists';
