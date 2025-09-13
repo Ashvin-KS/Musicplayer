@@ -20,6 +20,7 @@ def search_youtube(query):
         'extract_flat': 'in_playlist',
         'default_search': 'ytsearch20',  # Search for 20 items
         'match_filter': yt_dlp.utils.match_filter_func('duration > 60'),
+        'cookiefile': 'cookies.txt' if os.path.exists('cookies.txt') else None
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
