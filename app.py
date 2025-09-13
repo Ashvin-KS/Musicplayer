@@ -21,20 +21,24 @@ def search_youtube(query):
         'default_search': 'ytsearch20',  # Search for 20 items
         'match_filter': yt_dlp.utils.match_filter_func('duration > 60'),
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(query, download=False)
-        entries = result.get('entries', [])
-        
-        search_results = []
-        for entry in entries:
-            is_playlist = entry.get('_type') == 'playlist'
-            search_results.append({
-                'id': entry['id'],
-                'title': entry.get('title', 'Untitled'),
-                'is_playlist': is_playlist,
-                'thumbnail': entry.get('thumbnails', [{}])[-1].get('url') if entry.get('thumbnails') else f'https://i.ytimg.com/vi/{entry["id"]}/hqdefault.jpg'
-            })
-        return search_results
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            result = ydl.extract_info(query, download=False)
+            entries = result.get('entries', [])
+            
+            search_results = []
+            for entry in entries:
+                is_playlist = entry.get('_type') == 'playlist'
+                search_results.append({
+                    'id': entry['id'],
+                    'title': entry.get('title', 'Untitled'),
+                    'is_playlist': is_playlist,
+                    'thumbnail': entry.get('thumbnails', [{}])[-1].get('url') if entry.get('thumbnails') else f'https://i.ytimg.com/vi/{entry["id"]}/hqdefault.jpg'
+                })
+            return search_results
+    except Exception as e:
+        print(f"Error in search_youtube: {e}")
+        return []
 
 def get_playlist_items(playlist_id):
     """Fetches all video entries from a given YouTube playlist ID."""
@@ -45,17 +49,21 @@ def get_playlist_items(playlist_id):
         'playlist_items': '1-100'  # Limit to first 100 items to prevent abuse
     }
     url = f'https://www.youtube.com/playlist?list={playlist_id}'
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(url, download=False)
-        entries = result.get('entries', [])
-        return [
-            {
-                'id': entry['id'],
-                'title': entry.get('title', 'Untitled'),
-                'thumbnail': f'https://i.ytimg.com/vi/{entry["id"]}/mqdefault.jpg'
-            }
-            for entry in entries if entry  # Filter out potential None entries
-        ]
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            result = ydl.extract_info(url, download=False)
+            entries = result.get('entries', [])
+            return [
+                {
+                    'id': entry['id'],
+                    'title': entry.get('title', 'Untitled'),
+                    'thumbnail': f'https://i.ytimg.com/vi/{entry["id"]}/mqdefault.jpg'
+                }
+                for entry in entries if entry  # Filter out potential None entries
+            ]
+    except Exception as e:
+        print(f"Error in get_playlist_items: {e}")
+        return []
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
