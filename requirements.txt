@@ -1,0 +1,6 @@
+Flask
+Flask-Cors
+yt-dlp
+requests
+waitress
+gunicorn
