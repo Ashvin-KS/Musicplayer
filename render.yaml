@@ -14,11 +14,11 @@ services:
     staticPublishPath: "./dist"
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://music-app-backend.onrender.com # Replace with your actual backend service URL on Render
+        value: https://music-app-iazh.onrender.com
     routes:
       - type: rewrite
         source: /api/*
-        destination: https://music-app-backend.onrender.com/api/* # Ensure this matches your backend service URL
+        destination: https://music-app-iazh.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html
