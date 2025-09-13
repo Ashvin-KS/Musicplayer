@@ -15,7 +15,7 @@ services:
     routes:
       - type: rewrite
         source: /api/*
-        destination: /api/*
+        destination: https://harmonyvibe.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html
