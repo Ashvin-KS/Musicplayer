@@ -6,72 +6,15 @@ from flask_cors import CORS
 import yt_dlp
 import requests
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='dist', static_url_path='/')
 CORS(app)
 
 # In-memory cache for audio URLs
 audio_url_cache = {}
 
-def search_youtube(query):
-    """Searches YouTube for videos and playlists."""
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'extract_flat': 'in_playlist',
-        'default_search': 'ytsearch20',  # Search for 20 items
-        'match_filter': yt_dlp.utils.match_filter_func('duration > 60')
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(query, download=False)
-            entries = result.get('entries', [])
-            
-            search_results = []
-            for entry in entries:
-                is_playlist = entry.get('_type') == 'playlist'
-                search_results.append({
-                    'id': entry['id'],
-                    'title': entry.get('title', 'Untitled'),
-                    'is_playlist': is_playlist,
-                    'thumbnail': entry.get('thumbnails', [{}])[-1].get('url') if entry.get('thumbnails') else f'https://i.ytimg.com/vi/{entry["id"]}/hqdefault.jpg'
-                })
-            return search_results
-    except Exception as e:
-        print(f"Error in search_youtube: {e}")
-        return []
-
-def get_playlist_items(playlist_id):
-    """Fetches all video entries from a given YouTube playlist ID."""
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'extract_flat': True,
-        'playlist_items': '1-100'  # Limit to first 100 items to prevent abuse
-    }
-    url = f'https://www.youtube.com/playlist?list={playlist_id}'
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(url, download=False)
-            entries = result.get('entries', [])
-            return [
-                {
-                    'id': entry['id'],
-                    'title': entry.get('title', 'Untitled'),
-                    'thumbnail': f'https://i.ytimg.com/vi/{entry["id"]}/mqdefault.jpg'
-                }
-                for entry in entries if entry  # Filter out potential None entries
-            ]
-    except Exception as e:
-        print(f"Error in get_playlist_items: {e}")
-        return []
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if path != "" and os.path.exists("dist/" + path):
-        return send_from_directory('dist', path)
-    else:
-        return send_from_directory('dist', 'index.html')
+@app.route('/')
+def serve_index():
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/search')
 def search():
