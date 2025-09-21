@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import YouTube from 'react-youtube';
 import './App.css';
 import {
@@ -41,14 +41,7 @@ function App() {
   const isInitialMount = useRef(true);
   const intervalRef = useRef(null);
 
-  useEffect(() => {
-    document.body.style.margin = '0';
-    return () => {
-      document.body.style.margin = '';
-    };
-  }, []);
-
-  const handleSearch = async (e) => {
+  const handleSearch = useCallback(async (e) => {
     if (e) e.preventDefault();
     setLoading(true);
     setError('');
@@ -56,51 +49,31 @@ function App() {
       const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       setSearchResults(data);
-    } catch (err) {
+    } catch (error) {
       setError('Search failed');
+      console.error("Search failed:", error);
     }
     setLoading(false);
-  };
+  }, [query, setLoading, setError, setSearchResults]);
 
-  useEffect(() => {
-    if (!query) {
-      setSearchResults([]);
-      return;
-    }
-    const timeout = setTimeout(() => {
-      handleSearch();
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [query]);
-
-  useEffect(() => {
-    handleSearch({ preventDefault: () => {} });
-  }, []);
-
-  useEffect(() => {
-    if (searchResults.length > 0 && !currentTrack) {
-      playTrack(0);
-    }
-  }, [searchResults]);
-
-  const playTrack = (idx) => {
+  const playTrack = useCallback((idx) => {
     if (searchResults.length === 0) return;
     setCurrentIndex(idx);
     setCurrentTrack(searchResults[idx]);
     setPlaySource('results');
     setIsPlaying(true);
-  };
+  }, [searchResults, setCurrentIndex, setCurrentTrack, setPlaySource, setIsPlaying]);
 
-  const playPlaylistTrack = (tracks, idx) => {
+  const playPlaylistTrack = useCallback((tracks, idx) => {
     if (!tracks || tracks.length === 0) return;
     setCurrentTrack(tracks[idx]);
     setCurrentIndex(idx);
     setPlaySource('playlist');
     setPlaylistTracks(tracks);
     setIsPlaying(true);
-  };
+  }, [setCurrentTrack, setCurrentIndex, setPlaySource, setPlaylistTracks, setIsPlaying]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (!currentTrack && searchResults.length > 0) {
       playTrack(0);
       return;
@@ -112,10 +85,10 @@ function App() {
     } else {
       playerRef.current.playVideo();
     }
-    setIsPlaying(!isPlaying);
-  };
+    setIsPlaying((prev) => !prev);
+  }, [currentTrack, searchResults, playTrack, playerRef, isPlaying, setIsPlaying]);
 
-  const playNext = () => {
+  const playNext = useCallback(() => {
     if (playSource === 'playlist' && playlistTracks.length > 0) {
       const next = (currentIndex + 1) % playlistTracks.length;
       playPlaylistTrack(playlistTracks, next);
@@ -123,9 +96,9 @@ function App() {
       const next = (currentIndex + 1) % searchResults.length;
       playTrack(next);
     }
-  };
+  }, [playSource, playlistTracks, currentIndex, playPlaylistTrack, searchResults, playTrack]);
 
-  const playPrev = () => {
+  const playPrev = useCallback(() => {
     if (playSource === 'playlist' && playlistTracks.length > 0) {
       const prev = (currentIndex - 1 + playlistTracks.length) % playlistTracks.length;
       playPlaylistTrack(playlistTracks, prev);
@@ -133,7 +106,14 @@ function App() {
       const prev = (currentIndex - 1 + searchResults.length) % searchResults.length;
       playTrack(prev);
     }
-  };
+  }, [playSource, playlistTracks, currentIndex, playPlaylistTrack, searchResults, playTrack]);
+
+  useEffect(() => {
+    document.body.style.margin = '0';
+    return () => {
+      document.body.style.margin = '';
+    };
+  }, []);
 
   const onPlayerReady = (event) => {
     playerRef.current = event.target;
@@ -267,14 +247,18 @@ function App() {
     if (savedPlaylists) {
       try {
         setPlaylists(JSON.parse(savedPlaylists));
-      } catch {}
+      } catch (error) {
+        console.error("Failed to parse saved playlists:", error);
+      }
     }
     const savedSettings = localStorage.getItem(LS_SETTINGS);
     if (savedSettings) {
       try {
         const settings = JSON.parse(savedSettings);
         if (typeof settings.showVideo === 'boolean') setShowVideo(settings.showVideo);
-      } catch {}
+      } catch (error) {
+        console.error("Failed to parse saved settings:", error);
+      }
     }
   }, []);
 

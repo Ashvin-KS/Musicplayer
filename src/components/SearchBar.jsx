@@ -10,7 +10,7 @@ const SearchBar = ({ query, setQuery, handleSearch, loading }) => (
       placeholder="Search YouTube..."
       autoComplete="off"
     />
-    <button type="submit" disabled={loading} className={loading ? 'loading' : ''} onClick={(e) => console.log('Search button clicked')}>
+    <button type="submit" disabled={loading} className={loading ? 'loading' : ''} onClick={() => console.log('Search button clicked')}>
       {loading ? 'Loading...' : 'Search'}
     </button>
   </form>

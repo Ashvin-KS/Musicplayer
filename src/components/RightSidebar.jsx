@@ -43,7 +43,7 @@ const RightSidebar = ({
     return () => {
       isCancelled = true;
     };
-  }, [currentTrack?.id, currentTrack?.title]);
+  }, [currentTrack?.id, currentTrack?.title, currentTrack]);
 
   return (
     <div className="sidebar right-sidebar">
