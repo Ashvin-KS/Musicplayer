@@ -4,7 +4,7 @@ services:
     env: python
     buildCommand: |
       npm install
-      VITE_API_BASE_URL=/ npm run build
+      npm run build
       pip install -r requirements.txt
     startCommand: "gunicorn app:app"
     envVars:
