@@ -6,7 +6,7 @@ from flask_cors import CORS
 import yt_dlp
 import requests
 
-app = Flask(__name__, static_folder='dist', static_url_path='/')
+app = Flask(__name__)
 CORS(app)
 
 # In-memory cache for audio URLs
@@ -14,7 +14,11 @@ audio_url_cache = {}
 
 @app.route('/')
 def serve_index():
-    return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory('dist', 'index.html')
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('dist', filename)
 
 @app.route('/search')
 def search():
