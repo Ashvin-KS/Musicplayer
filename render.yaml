@@ -1,24 +1,18 @@
 services:
   - type: web
-    name: music-app-backend
+    name: music-app
     env: python
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: |
+      npm install
+      npm run build
+      pip install -r requirements.txt
     startCommand: "gunicorn app:app"
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.6
-  - type: web
-    name: music-app-frontend
-    env: static
-    buildCommand: "npm install && npm run build"
-    staticPublishPath: "./dist"
-    envVars:
       - key: VITE_API_BASE_URL
-        value: https://music-app-iazh.onrender.com
+        value: /
     routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://music-app-iazh.onrender.com/api/*
       - type: rewrite
         source: /*
         destination: /index.html

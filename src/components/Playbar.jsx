@@ -4,10 +4,7 @@ const PLACEHOLDER_IMAGE = 'https://imgs.search.brave.com/_El4hVIjHgeB8y4J0ZGGx1W
 const PLACEHOLDER_TEXT = 'No track playing...';
 
 const Playbar = ({
-  audioRef,
-  audioUrl,
   isPlaying,
-  setIsPlaying,
   playPrev,
   playNext,
   togglePlay,
@@ -21,13 +18,6 @@ const Playbar = ({
   formatTime
 }) => (
   <div className="playbar">
-    <audio
-      ref={audioRef}
-      src={audioUrl}
-      autoPlay={isPlaying}
-      onPlay={() => setIsPlaying(true)}
-      onPause={() => setIsPlaying(false)}
-    />
     <div className="track-info">
       <div className="current-track-info">
         <img

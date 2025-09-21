@@ -4,30 +4,28 @@ import { getArtistInfo } from './aii';
 const RightSidebar = ({ 
   showVideo, 
   currentTrack, 
-  videoRef, 
-  isPlaying
+  children
 }) => {
   const [artistInfo, setArtistInfo] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    let isCancelled = false; // Flag to ignore stale requests
+    let isCancelled = false;
 
     if (currentTrack && currentTrack.title) {
-      setArtistInfo(null); // Immediately clear old artist info
+      setArtistInfo(null);
       setIsLoading(true);
 
       const fetchArtistInfo = async () => {
         try {
           const info = await getArtistInfo(currentTrack.title);
-          // Only update state if this effect is still the active one
           if (!isCancelled) {
             setArtistInfo(info || {});
           }
         } catch (error) {
           console.error("RightSidebar: Failed to fetch artist info:", error);
           if (!isCancelled) {
-            setArtistInfo({}); // Set to an empty object on error
+            setArtistInfo({});
           }
         } finally {
           if (!isCancelled) {
@@ -42,32 +40,29 @@ const RightSidebar = ({
       setIsLoading(false);
     }
 
-    // Cleanup function: This runs when the component unmounts or the effect re-runs.
-    // It sets the flag to true, so any pending fetch requests from the *previous* effect will be ignored.
     return () => {
       isCancelled = true;
     };
-  }, [currentTrack?.id, currentTrack?.title]); // Re-run only when the actual track ID changes
+  }, [currentTrack?.id, currentTrack?.title]);
 
   return (
     <div className="sidebar right-sidebar">
-      {showVideo && currentTrack && (
-        <div className="video-container">
-          <iframe
-            ref={videoRef}
-            src={`https://www.youtube.com/embed/${currentTrack.id}?enablejsapi=1&controls=0&rel=0&modestbranding=1&mute=1&autoplay=${isPlaying ? 1 : 0}`}
-            title="YouTube video player"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          ></iframe>
-        </div>
-      )}
+      <div 
+        className="video-container"
+        style={showVideo && currentTrack ? {
+          height: '200px', 
+        } : {
+          position: 'absolute',
+          top: '-9999px',
+          left: '-9999px',
+        }}
+      >
+        {children}
+      </div>
       
       <div className="artist-info-container">
         {currentTrack && (
           <>
-            {/* Display artist image */}
-            {/* Prioritize artistInfo.artistImage, then currentTrack.thumbnail as a fallback */}
             {((artistInfo && artistInfo.artistImage) || (currentTrack && currentTrack.thumbnail)) && (
               <div className="artist-image-wrapper">
                 <img
@@ -80,16 +75,12 @@ const RightSidebar = ({
             {isLoading && !((artistInfo && artistInfo.artistImage) || (currentTrack && currentTrack.thumbnail)) && (
               <p>Loading artist image...</p>
             )}
-            {/* Display artist name from fetched info, fallback to currentTrack */}
             <h2>{(artistInfo && artistInfo.artistName) || (currentTrack && currentTrack.artist) || "Unknown Artist"}</h2>
-            {/* Display views from fetched info, fallback to currentTrack */}
             {((artistInfo && artistInfo.viewCount) || (currentTrack && currentTrack.view_count)) && (
               <p style={{ fontSize: '0.9em', color: '#ccc' }}>
                 Views: {((artistInfo && artistInfo.viewCount) || (currentTrack && currentTrack.view_count)).toLocaleString()}
               </p>
             )}
-            
-            {/* Artist description removed as per request */}
           </>
         )}
         {currentTrack && currentTrack.description && (

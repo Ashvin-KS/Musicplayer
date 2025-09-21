@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import YouTube from 'react-youtube';
 import './App.css';
 import {
   MusicHeader,
@@ -9,9 +10,8 @@ import {
   ErrorMessage,
   LeftSidebar
 } from './components';
-import { getArtistInfo } from './components/aii'; // Re-add import getArtistInfo
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 // LocalStorage keys
 const LS_PLAYLISTS = 'musicapp_playlists';
@@ -23,54 +23,45 @@ function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [audioUrl, setAudioUrl] = useState('');
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showVideo, setShowVideo] = useState(false);
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(320); // px, initial right sidebar width
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
-  const [playSource, setPlaySource] = useState('results'); // 'results' or 'playlist'
+  const [playSource, setPlaySource] = useState('results');
   const [playlistTracks, setPlaylistTracks] = useState([]);
-  const [playlists, setPlaylists] = useState([]); // <-- central playlists state
+  const [playlists, setPlaylists] = useState([]);
   const [activePlaylistId, setActivePlaylistId] = useState(null);
-  const audioRef = useRef(null);
+
+  const playerRef = useRef(null);
   const progressBarRef = useRef(null);
-  const videoRef = useRef(null);
-  const lastSyncTime = useRef(0);
   const containerRef = useRef(null);
   const isInitialMount = useRef(true);
+  const intervalRef = useRef(null);
 
-  // Remove body margin to use full viewport width
   useEffect(() => {
     document.body.style.margin = '0';
     return () => {
-      document.body.style.margin = ''; // Revert on unmount
+      document.body.style.margin = '';
     };
   }, []);
 
-  // Search YouTube via backend
   const handleSearch = async (e) => {
-    console.log('handleSearch called from App.jsx');
-    if (e) {
-      console.log('Event prevented default');
-      e.preventDefault();
-    }
-    console.log('Setting loading to true');
+    if (e) e.preventDefault();
     setLoading(true);
     setError('');
     try {
       const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
-      let data = await res.json();
-      setSearchResults(data); // Do not fetch artist info here
+      const data = await res.json();
+      setSearchResults(data);
     } catch (err) {
       setError('Search failed');
     }
     setLoading(false);
   };
 
-  // Auto-search as user types (debounced)
   useEffect(() => {
     if (!query) {
       setSearchResults([]);
@@ -78,80 +69,52 @@ function App() {
     }
     const timeout = setTimeout(() => {
       handleSearch();
-    }, 400); // 400ms debounce
+    }, 400);
     return () => clearTimeout(timeout);
   }, [query]);
 
-  // Perform an initial search when the component mounts
   useEffect(() => {
-    handleSearch({ preventDefault: () => {} }); // Pass a mock event object
+    handleSearch({ preventDefault: () => {} });
   }, []);
 
-  // Automatically play the first search result if available and no track is playing
   useEffect(() => {
     if (searchResults.length > 0 && !currentTrack) {
       playTrack(0);
     }
-  }, [searchResults, currentTrack]);
+  }, [searchResults]);
 
-  // Play selected track from search results
-  const playTrack = async (idx) => {
+  const playTrack = (idx) => {
     if (searchResults.length === 0) return;
-    setLoading(true);
-    setError('');
     setCurrentIndex(idx);
     setCurrentTrack(searchResults[idx]);
-    const videoId = searchResults[idx].id;
-    setAudioUrl(`${API_BASE}/play/${videoId}`);
-    setIsPlaying(true);
-    setCurrentTime(0);
     setPlaySource('results');
-    setLoading(false);
+    setIsPlaying(true);
   };
 
-  // Play playlist track
   const playPlaylistTrack = (tracks, idx) => {
     if (!tracks || tracks.length === 0) return;
     setCurrentTrack(tracks[idx]);
     setCurrentIndex(idx);
-    setAudioUrl(`${API_BASE}/play/${tracks[idx].id}`);
-    setIsPlaying(true);
     setPlaySource('playlist');
     setPlaylistTracks(tracks);
+    setIsPlaying(true);
   };
 
-  // Play/pause toggle
   const togglePlay = () => {
-    // If nothing is loaded but there are results, play the first track
     if (!currentTrack && searchResults.length > 0) {
       playTrack(0);
       return;
     }
-    if (!audioRef.current) return;
+    if (!playerRef.current) return;
+
     if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      // Pause video if it exists
-      if (videoRef.current && showVideo) {
-        videoRef.current.contentWindow.postMessage(
-          '{"event":"command","func":"pauseVideo","args":""}',
-          '*'
-        );
-      }
+      playerRef.current.pauseVideo();
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
-      // Play video if it exists
-      if (videoRef.current && showVideo) {
-        videoRef.current.contentWindow.postMessage(
-          '{"event":"command","func":"playVideo","args":""}',
-          '*'
-        );
-      }
+      playerRef.current.playVideo();
     }
+    setIsPlaying(!isPlaying);
   };
 
-  // Next/prev controls
   const playNext = () => {
     if (playSource === 'playlist' && playlistTracks.length > 0) {
       const next = (currentIndex + 1) % playlistTracks.length;
@@ -161,6 +124,7 @@ function App() {
       playTrack(next);
     }
   };
+
   const playPrev = () => {
     if (playSource === 'playlist' && playlistTracks.length > 0) {
       const prev = (currentIndex - 1 + playlistTracks.length) % playlistTracks.length;
@@ -171,97 +135,64 @@ function App() {
     }
   };
 
-  // Audio element event handlers
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const onLoadedMetadata = () => {
-      setDuration(audio.duration || 0);
-      // No automatic video syncing when audio loads
-    };
-    const onTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      // No automatic video syncing during playback
-    };
-    const onEnded = playNext;
-    audio.addEventListener('loadedmetadata', onLoadedMetadata);
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('ended', onEnded);
-    return () => {
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('ended', onEnded);
-    };
-  }, [audioUrl, showVideo, currentTrack]);
+  const onPlayerReady = (event) => {
+    playerRef.current = event.target;
+    setDuration(playerRef.current.getDuration());
+    if (isPlaying) {
+      playerRef.current.playVideo();
+    }
+  };
 
-  // Video toggle handler
+  const onPlayerStateChange = (event) => {
+    setDuration(playerRef.current.getDuration());
+    if (event.data === YouTube.PlayerState.PLAYING) {
+      setIsPlaying(true);
+      startTimer();
+    } else if (
+      event.data === YouTube.PlayerState.PAUSED ||
+      event.data === YouTube.PlayerState.ENDED
+    ) {
+      setIsPlaying(false);
+      stopTimer();
+    }
+    if (event.data === YouTube.PlayerState.ENDED) {
+      playNext();
+    }
+  };
+
+  const startTimer = () => {
+    stopTimer();
+    intervalRef.current = setInterval(() => {
+      if (playerRef.current) {
+        setCurrentTime(playerRef.current.getCurrentTime());
+      }
+    }, 250);
+  };
+
+  const stopTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => stopTimer();
+  }, []);
+
   const toggleVideo = () => {
     setShowVideo((prev) => !prev);
   };
-  
-  // Manual sync function for immediate synchronization
-  const syncVideoToAudio = () => {
-    if (videoRef.current && audioRef.current && showVideo && currentTrack) {
-      const currentAudioTime = audioRef.current.currentTime;
-      console.log('Manual sync - Audio time:', currentAudioTime);
-      
-      // Reload the iframe with the current time to force sync
-      const videoId = currentTrack.id;
-      const startTime = Math.floor(currentAudioTime);
-      const newSrc = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&controls=0&rel=0&modestbranding=1&mute=1&start=${startTime}&autoplay=${isPlaying ? 1 : 0}`;
-      
-      videoRef.current.src = newSrc;
-      lastSyncTime.current = startTime;
-    }
-  };
-  
-  // Handle video initialization when video mode is toggled
-  useEffect(() => {
-    if (showVideo && currentTrack && videoRef.current) {
-      // Small delay to ensure iframe is loaded
-      setTimeout(() => {
-        // Only match play/pause state, no seeking
-        if (isPlaying) {
-          videoRef.current.contentWindow.postMessage(
-            '{"event":"command","func":"playVideo","args":""}',
-            '*'
-          );
-        } else {
-          videoRef.current.contentWindow.postMessage(
-            '{"event":"command","func":"pauseVideo","args":""}',
-            '*'
-          );
-        }
-      }, 1000); // 1 second delay for iframe to load
-    }
-  }, [showVideo, currentTrack, isPlaying]);
 
-  // Seek in audio and sync video
   const handleProgressBarClick = (e) => {
-    if (!audioRef.current || !progressBarRef.current) return;
+    if (!playerRef.current || !progressBarRef.current) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
     const seekTime = percent * duration;
-    
-    // Set audio time
-    audioRef.current.currentTime = seekTime;
+    playerRef.current.seekTo(seekTime, true);
     setCurrentTime(seekTime);
-    
-    // Sync video by reloading iframe with new start time
-    if (videoRef.current && showVideo && currentTrack) {
-      setTimeout(() => {
-        console.log('Timeline sync - Seeking to time:', seekTime);
-        const videoId = currentTrack.id;
-        const startTime = Math.floor(seekTime);
-        const newSrc = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&controls=0&rel=0&modestbranding=1&mute=1&start=${startTime}&autoplay=${isPlaying ? 1 : 0}`;
-        
-        videoRef.current.src = newSrc;
-        lastSyncTime.current = startTime;
-      }, 100);
-    }
   };
 
-  // Format time
   const formatTime = (t) => {
     if (isNaN(t)) return '0:00';
     const m = Math.floor(t / 60);
@@ -269,7 +200,6 @@ function App() {
     return `${m}:${s}`;
   };
 
-  // Mouse event handlers for resizing
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (isResizing) {
@@ -296,7 +226,6 @@ function App() {
     };
   }, [isResizing]);
 
-  // Add to playlist for active playlist in left sidebar
   const handleAddToActivePlaylist = (track) => {
     if (!activePlaylistId) {
       alert('Please select a playlist first!');
@@ -315,7 +244,6 @@ function App() {
     );
   };
 
-  // Keyboard controls for play/pause, next, prev
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
@@ -334,7 +262,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, playNext, playPrev]);
 
-  // --- Load from localStorage on mount ---
   useEffect(() => {
     const savedPlaylists = localStorage.getItem(LS_PLAYLISTS);
     if (savedPlaylists) {
@@ -342,7 +269,6 @@ function App() {
         setPlaylists(JSON.parse(savedPlaylists));
       } catch {}
     }
-    // Settings
     const savedSettings = localStorage.getItem(LS_SETTINGS);
     if (savedSettings) {
       try {
@@ -352,7 +278,6 @@ function App() {
     }
   }, []);
 
-  // --- Save playlists to localStorage when changed ---
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -361,17 +286,24 @@ function App() {
     localStorage.setItem(LS_PLAYLISTS, JSON.stringify(playlists));
   }, [playlists]);
 
-  // --- Save settings to localStorage when changed ---
   useEffect(() => {
     localStorage.setItem(LS_SETTINGS, JSON.stringify({ showVideo }));
   }, [showVideo]);
 
+  const youtubeOpts = {
+    height: '100%',
+    width: '100%',
+    playerVars: {
+      autoplay: 1,
+      controls: 0,
+      rel: 0,
+      modestbranding: 1,
+    },
+  };
+
   return (
     <div className="app-container" ref={containerRef}>
-      <div
-        className="sidebar left-sidebar"
-        style={{ width: 365 }}
-      >
+      <div className="sidebar left-sidebar" style={{ width: 365 }}>
         <LeftSidebar
           playlists={playlists}
           setPlaylists={setPlaylists}
@@ -388,12 +320,11 @@ function App() {
           <SearchResults
             searchResults={searchResults}
             currentIndex={currentIndex}
-          playTrack={playTrack}
-          addToPlaylist={handleAddToActivePlaylist}
-          playlist={[]}
-          playSource={playSource}
-          // Pass artist and view_count to SearchResults
-        />
+            playTrack={playTrack}
+            addToPlaylist={handleAddToActivePlaylist}
+            playlist={[]}
+            playSource={playSource}
+          />
         )}
       </div>
       <div
@@ -410,15 +341,21 @@ function App() {
         <RightSidebar
           showVideo={showVideo}
           currentTrack={currentTrack}
-          videoRef={videoRef}
           isPlaying={isPlaying}
-        />
+        >
+          {currentTrack && (
+            <YouTube
+              videoId={currentTrack.id}
+              opts={youtubeOpts}
+              onReady={onPlayerReady}
+              onStateChange={onPlayerStateChange}
+              style={{ height: '100%', width: '100%' }}
+            />
+          )}
+        </RightSidebar>
       </div>
       <Playbar
-        audioRef={audioRef}
-        audioUrl={audioUrl}
         isPlaying={isPlaying}
-        setIsPlaying={setIsPlaying}
         playPrev={playPrev}
         playNext={playNext}
         togglePlay={togglePlay}
