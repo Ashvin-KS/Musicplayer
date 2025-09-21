@@ -4,11 +4,11 @@
  * @param {string} songTitle The title of the song.
  * @returns {Promise<object|null>} A promise that resolves to an object with artist info or null if an error occurs.
  */
-export async function getArtistInfo(songTitle) {
-  console.log(`Fetching artist info for: "${songTitle}" from backend (YouTube).`);
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
+export const getArtistDetails = async (songTitle) => {
   try {
-    const response = await fetch(`http://localhost:5000/get_artist_details?song_title=${encodeURIComponent(songTitle)}`);
+    const response = await fetch(`${API_BASE}/get_artist_details?song_title=${encodeURIComponent(songTitle)}`);
     
     if (!response.ok) {
       const errorData = await response.json();

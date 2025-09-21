@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { getArtistInfo } from './aii';
+import { getArtistDetails } from './aii';
 
 const RightSidebar = ({ 
   showVideo, 
@@ -18,7 +18,7 @@ const RightSidebar = ({
 
       const fetchArtistInfo = async () => {
         try {
-          const info = await getArtistInfo(currentTrack.title);
+          const info = await getArtistDetails(currentTrack.title);
           if (!isCancelled) {
             setArtistInfo(info || {});
           }
