@@ -2,20 +2,17 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import YouTube from 'react-youtube';
 import './App.css';
 import {
-  MusicHeader,
-  SearchBar,
+  LeftSidebar,
+  PlaylistView,
   SearchResults,
   RightSidebar,
   Playbar,
-  ErrorMessage,
-  LeftSidebar
+  ErrorMessage
 } from './components';
+import { Home, Search } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
-// LocalStorage keys
 const LS_PLAYLISTS = 'musicapp_playlists';
-const LS_SETTINGS = 'musicapp_settings';
 
 function App() {
   const [query, setQuery] = useState('');
@@ -27,115 +24,98 @@ function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showVideo, setShowVideo] = useState(false);
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(320);
-  const [isResizing, setIsResizing] = useState(false);
-  const [playSource, setPlaySource] = useState('results');
-  const [playlistTracks, setPlaylistTracks] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [activePlaylistId, setActivePlaylistId] = useState(null);
+  const [currentView, setCurrentView] = useState('home');
+  const [volume, setVolume] = useState(100);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [playQueue, setPlayQueue] = useState([]);
 
   const playerRef = useRef(null);
   const progressBarRef = useRef(null);
-  const containerRef = useRef(null);
-  const isInitialMount = useRef(true);
   const intervalRef = useRef(null);
 
+  // Search
   const handleSearch = useCallback(async (e) => {
     if (e) e.preventDefault();
+    if (!query.trim()) return;
     setLoading(true);
     setError('');
+    setCurrentView('search');
     try {
       const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       setSearchResults(data);
-    } catch (error) {
+    } catch (err) {
       setError('Search failed');
-      console.error("Search failed:", error);
     }
     setLoading(false);
-  }, [query, setLoading, setError, setSearchResults]);
+  }, [query]);
 
-  const playTrack = useCallback((idx) => {
-    if (searchResults.length === 0) return;
-    setCurrentIndex(idx);
-    setCurrentTrack(searchResults[idx]);
-    setPlaySource('results');
-    setIsPlaying(true);
-  }, [searchResults, setCurrentIndex, setCurrentTrack, setPlaySource, setIsPlaying]);
-
-  const playPlaylistTrack = useCallback((tracks, idx) => {
+  // Play track - plays the exact song clicked, stores the playlist for navigation
+  const playTrack = useCallback((tracks, idx) => {
     if (!tracks || tracks.length === 0) return;
-    setCurrentTrack(tracks[idx]);
+    setPlayQueue([...tracks]); // Keep original order in queue
     setCurrentIndex(idx);
-    setPlaySource('playlist');
-    setPlaylistTracks(tracks);
+    setCurrentTrack(tracks[idx]); // Play the exact song clicked
     setIsPlaying(true);
-  }, [setCurrentTrack, setCurrentIndex, setPlaySource, setPlaylistTracks, setIsPlaying]);
-
-  const togglePlay = useCallback(() => {
-    if (!currentTrack && searchResults.length > 0) {
-      playTrack(0);
-      return;
-    }
-    if (!playerRef.current) return;
-
-    if (isPlaying) {
-      playerRef.current.pauseVideo();
-    } else {
-      playerRef.current.playVideo();
-    }
-    setIsPlaying((prev) => !prev);
-  }, [currentTrack, searchResults, playTrack, playerRef, isPlaying, setIsPlaying]);
-
-  const playNext = useCallback(() => {
-    if (playSource === 'playlist' && playlistTracks.length > 0) {
-      const next = (currentIndex + 1) % playlistTracks.length;
-      playPlaylistTrack(playlistTracks, next);
-    } else if (searchResults.length > 0) {
-      const next = (currentIndex + 1) % searchResults.length;
-      playTrack(next);
-    }
-  }, [playSource, playlistTracks, currentIndex, playPlaylistTrack, searchResults, playTrack]);
-
-  const playPrev = useCallback(() => {
-    if (playSource === 'playlist' && playlistTracks.length > 0) {
-      const prev = (currentIndex - 1 + playlistTracks.length) % playlistTracks.length;
-      playPlaylistTrack(playlistTracks, prev);
-    } else if (searchResults.length > 0) {
-      const prev = (currentIndex - 1 + searchResults.length) % searchResults.length;
-      playTrack(prev);
-    }
-  }, [playSource, playlistTracks, currentIndex, playPlaylistTrack, searchResults, playTrack]);
-
-  useEffect(() => {
-    document.body.style.margin = '0';
-    return () => {
-      document.body.style.margin = '';
-    };
   }, []);
 
+  const togglePlay = useCallback(() => {
+    if (!playerRef.current) return;
+    if (isPlaying) playerRef.current.pauseVideo();
+    else playerRef.current.playVideo();
+    setIsPlaying(prev => !prev);
+  }, [isPlaying]);
+
+  const playNext = useCallback(() => {
+    if (playQueue.length === 0) return;
+    let nextIdx;
+    if (isShuffle) {
+      // Random next (but not the same track)
+      do {
+        nextIdx = Math.floor(Math.random() * playQueue.length);
+      } while (nextIdx === currentIndex && playQueue.length > 1);
+    } else {
+      nextIdx = (currentIndex + 1) % playQueue.length;
+    }
+    setCurrentIndex(nextIdx);
+    setCurrentTrack(playQueue[nextIdx]);
+  }, [playQueue, currentIndex, isShuffle]);
+
+  const playPrev = useCallback(() => {
+    if (playQueue.length === 0) return;
+
+    // If more than 10 seconds into the song, restart it
+    if (currentTime > 10 && playerRef.current) {
+      playerRef.current.seekTo(0, true);
+      setCurrentTime(0);
+      return;
+    }
+
+    // Otherwise go to previous track
+    const prev = (currentIndex - 1 + playQueue.length) % playQueue.length;
+    setCurrentIndex(prev);
+    setCurrentTrack(playQueue[prev]);
+  }, [playQueue, currentIndex, currentTime]);
+
+  // YouTube callbacks
   const onPlayerReady = (event) => {
     playerRef.current = event.target;
+    playerRef.current.setVolume(volume);
     setDuration(playerRef.current.getDuration());
-    if (isPlaying) {
-      playerRef.current.playVideo();
-    }
+    if (isPlaying) playerRef.current.playVideo();
   };
 
   const onPlayerStateChange = (event) => {
-    setDuration(playerRef.current.getDuration());
+    setDuration(playerRef.current?.getDuration() || 0);
     if (event.data === YouTube.PlayerState.PLAYING) {
       setIsPlaying(true);
       startTimer();
-    } else if (
-      event.data === YouTube.PlayerState.PAUSED ||
-      event.data === YouTube.PlayerState.ENDED
-    ) {
+    } else if (event.data === YouTube.PlayerState.PAUSED) {
       setIsPlaying(false);
       stopTimer();
-    }
-    if (event.data === YouTube.PlayerState.ENDED) {
+    } else if (event.data === YouTube.PlayerState.ENDED) {
       playNext();
     }
   };
@@ -143,214 +123,233 @@ function App() {
   const startTimer = () => {
     stopTimer();
     intervalRef.current = setInterval(() => {
-      if (playerRef.current) {
-        setCurrentTime(playerRef.current.getCurrentTime());
-      }
+      if (playerRef.current) setCurrentTime(playerRef.current.getCurrentTime());
     }, 250);
   };
 
   const stopTimer = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
-  useEffect(() => {
-    return () => stopTimer();
-  }, []);
-
-  const toggleVideo = () => {
-    setShowVideo((prev) => !prev);
-  };
-
-  const handleProgressBarClick = (e) => {
+  const handleProgressClick = (e) => {
     if (!playerRef.current || !progressBarRef.current) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
-    const seekTime = percent * duration;
-    playerRef.current.seekTo(seekTime, true);
-    setCurrentTime(seekTime);
+    playerRef.current.seekTo(percent * duration, true);
+  };
+
+  const handleVolumeChange = (v) => {
+    setVolume(v);
+    if (playerRef.current) playerRef.current.setVolume(v);
   };
 
   const formatTime = (t) => {
     if (isNaN(t)) return '0:00';
-    const m = Math.floor(t / 60);
-    const s = Math.floor(t % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
+    return `${Math.floor(t / 60)}:${Math.floor(t % 60).toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (isResizing) {
-        const minSidebar = 200;
-        const maxSidebar = 520;
-        let newWidth = 0;
-        if (containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect();
-          newWidth = Math.max(minSidebar, Math.min(maxSidebar, rect.right - e.clientX));
-        }
-        setRightSidebarWidth(newWidth);
+  // Playlist management
+  const handleAddToPlaylist = (track) => {
+    if (!activePlaylistId) return alert('Select a playlist first');
+    setPlaylists(prev => prev.map(p => {
+      if (p.id === activePlaylistId && !p.tracks.find(t => t.id === track.id)) {
+        return { ...p, tracks: [...p.tracks, track] };
       }
-    };
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-    if (isResizing) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
+      return p;
+    }));
+  };
 
-  const handleAddToActivePlaylist = (track) => {
-    if (!activePlaylistId) {
-      alert('Please select a playlist first!');
-      return;
+  const updatePlaylist = (id, updates) => {
+    setPlaylists(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+
+  const reorderTrack = (playlistId, fromIdx, toIdx) => {
+    setPlaylists(prev => prev.map(p => {
+      if (p.id === playlistId) {
+        const tracks = [...p.tracks];
+        const [removed] = tracks.splice(fromIdx, 1);
+        tracks.splice(toIdx, 0, removed);
+        return { ...p, tracks };
+      }
+      return p;
+    }));
+  };
+
+  const createPlaylist = (name) => {
+    const newPlaylist = { id: Date.now(), name, tracks: [], coverImage: null };
+    setPlaylists(prev => [...prev, newPlaylist]);
+  };
+
+  const deletePlaylist = (id) => {
+    setPlaylists(prev => prev.filter(p => p.id !== id));
+    if (activePlaylistId === id) {
+      setActivePlaylistId(null);
+      setCurrentView('home');
     }
-    setPlaylists(
-      playlists.map((p) => {
-        if (p.id === activePlaylistId) {
-          const trackExists = p.tracks.some((t) => t.id === track.id);
-          if (!trackExists) {
-            return { ...p, tracks: [...p.tracks, track] };
+  };
+
+  const toggleShuffle = () => setIsShuffle(prev => !prev);
+
+  // Load playlists - try localStorage first, then server
+  useEffect(() => {
+    const load = async () => {
+      // First load from localStorage for immediate display
+      const saved = localStorage.getItem(LS_PLAYLISTS);
+      if (saved) {
+        try {
+          const localData = JSON.parse(saved);
+          if (Array.isArray(localData) && localData.length > 0) {
+            setPlaylists(localData);
+          }
+        } catch (e) {
+          console.error('Failed to parse localStorage:', e);
+        }
+      }
+
+      // Then try to sync with server (server is source of truth if available)
+      try {
+        const res = await fetch(`${API_BASE}/playlists`);
+        if (res.ok) {
+          const serverData = await res.json();
+          if (Array.isArray(serverData) && serverData.length > 0) {
+            setPlaylists(serverData);
+            localStorage.setItem(LS_PLAYLISTS, JSON.stringify(serverData));
           }
         }
-        return p;
-      })
-    );
-  };
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
-      if (e.code === 'Space' || e.key === ' ') {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        playNext();
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        playPrev();
+      } catch (e) {
+        console.log('Server unavailable, using localStorage');
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, playNext, playPrev]);
-
-  useEffect(() => {
-    const savedPlaylists = localStorage.getItem(LS_PLAYLISTS);
-    if (savedPlaylists) {
-      try {
-        setPlaylists(JSON.parse(savedPlaylists));
-      } catch (error) {
-        console.error("Failed to parse saved playlists:", error);
-      }
-    }
-    const savedSettings = localStorage.getItem(LS_SETTINGS);
-    if (savedSettings) {
-      try {
-        const settings = JSON.parse(savedSettings);
-        if (typeof settings.showVideo === 'boolean') setShowVideo(settings.showVideo);
-      } catch (error) {
-        console.error("Failed to parse saved settings:", error);
-      }
-    }
+    load();
   }, []);
 
+  const isInitialMount = useRef(true);
+
   useEffect(() => {
+    // Don't save on initial mount - wait for load to complete
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
+    // Save to localStorage
     localStorage.setItem(LS_PLAYLISTS, JSON.stringify(playlists));
+    // Sync to server
+    fetch(`${API_BASE}/playlists`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(playlists)
+    }).catch(() => { });
   }, [playlists]);
 
-  useEffect(() => {
-    localStorage.setItem(LS_SETTINGS, JSON.stringify({ showVideo }));
-  }, [showVideo]);
-
-  const youtubeOpts = {
-    height: '100%',
-    width: '100%',
-    playerVars: {
-      autoplay: 1,
-      controls: 0,
-      rel: 0,
-      modestbranding: 1,
-    },
-  };
+  const activePlaylist = playlists.find(p => p.id === activePlaylistId);
 
   return (
-    <div className="app-container" ref={containerRef}>
-      <div className="sidebar left-sidebar" style={{ width: 365 }}>
+    <div className="app-container">
+      <div className="main-wrapper">
         <LeftSidebar
           playlists={playlists}
-          setPlaylists={setPlaylists}
           activePlaylistId={activePlaylistId}
-          setActivePlaylistId={setActivePlaylistId}
-          playPlaylistTrack={playPlaylistTrack}
+          setActivePlaylistId={(id) => { setActivePlaylistId(id); setCurrentView('playlist'); }}
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          createPlaylist={createPlaylist}
+          deletePlaylist={deletePlaylist}
         />
-      </div>
-      <div className="music-app" style={{ flex: 1, minWidth: 300, maxWidth: '100vw', overflow: 'auto' }}>
-        <MusicHeader />
-        <SearchBar query={query} setQuery={setQuery} handleSearch={handleSearch} loading={loading} />
-        <ErrorMessage error={error} />
-        {searchResults.length > 0 && (
-          <SearchResults
-            searchResults={searchResults}
-            currentIndex={currentIndex}
-            playTrack={playTrack}
-            addToPlaylist={handleAddToActivePlaylist}
-            playlist={[]}
-            playSource={playSource}
-          />
-        )}
-      </div>
-      <div
-        className="resizer"
-        style={{ width: 8, cursor: 'col-resize', background: isResizing ? '#888' : '#222', zIndex: 10 }}
-        onMouseDown={() => setIsResizing(true)}
-        onDoubleClick={() => setRightSidebarWidth(320)}
-        title="Drag to resize right sidebar"
-      />
-      <div
-        className="sidebar right-sidebar"
-        style={{ width: rightSidebarWidth, padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
-      >
-        <RightSidebar
-          showVideo={showVideo}
-          currentTrack={currentTrack}
-          isPlaying={isPlaying}
-        >
+
+        <div className="main-view">
+          {/* Top Bar */}
+          <div className="top-bar">
+            <div
+              className={`nav-item ${currentView === 'home' ? 'active' : ''}`}
+              onClick={() => setCurrentView('home')}
+              style={{ padding: '8px 16px', borderRadius: '500px', background: currentView === 'home' ? '#fff' : '#242424', color: currentView === 'home' ? '#000' : '#fff' }}
+            >
+              <Home size={20} />
+            </div>
+            <form onSubmit={handleSearch} className="search-container">
+              <Search size={20} color="#b3b3b3" />
+              <input
+                type="text"
+                placeholder="What do you want to play?"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </form>
+          </div>
+
+          <ErrorMessage error={error} />
+
+          {currentView === 'home' && (
+            <div style={{ padding: '24px' }}>
+              <h2 style={{ fontSize: '32px', marginBottom: '24px' }}>Good afternoon</h2>
+              {playlists.length > 0 && (
+                <div className="results-grid">
+                  {playlists.map(p => (
+                    <div
+                      key={p.id}
+                      className="result-card"
+                      onClick={() => { setActivePlaylistId(p.id); setCurrentView('playlist'); }}
+                    >
+                      <img src={p.coverImage || p.tracks[0]?.thumbnail || 'https://via.placeholder.com/180'} alt="" />
+                      <h4>{p.name}</h4>
+                      <span className="subtitle">Playlist • {p.tracks.length} songs</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentView === 'search' && (
+            <SearchResults
+              searchResults={searchResults}
+              loading={loading}
+              playTrack={(idx) => playTrack(searchResults, idx)}
+              addToPlaylist={handleAddToPlaylist}
+              currentTrack={currentTrack}
+            />
+          )}
+
+          {currentView === 'playlist' && activePlaylist && (
+            <PlaylistView
+              playlist={activePlaylist}
+              playTrack={playTrack}
+              currentTrack={currentTrack}
+              updatePlaylist={updatePlaylist}
+              reorderTrack={reorderTrack}
+              isShuffle={isShuffle}
+              toggleShuffle={toggleShuffle}
+            />
+          )}
+        </div>
+
+        <RightSidebar currentTrack={currentTrack}>
           {currentTrack && (
             <YouTube
               videoId={currentTrack.id}
-              opts={youtubeOpts}
+              opts={{ height: '0', width: '0', playerVars: { autoplay: 1 } }}
               onReady={onPlayerReady}
               onStateChange={onPlayerStateChange}
-              style={{ height: '100%', width: '100%' }}
             />
           )}
         </RightSidebar>
       </div>
+
       <Playbar
         isPlaying={isPlaying}
-        playPrev={playPrev}
-        playNext={playNext}
         togglePlay={togglePlay}
-        toggleVideo={toggleVideo}
-        showVideo={showVideo}
+        playNext={playNext}
+        playPrev={playPrev}
         currentTrack={currentTrack}
         progressBarRef={progressBarRef}
-        handleProgressBarClick={handleProgressBarClick}
+        handleProgressClick={handleProgressClick}
         currentTime={currentTime}
         duration={duration}
         formatTime={formatTime}
+        volume={volume}
+        onVolumeChange={handleVolumeChange}
+        isShuffle={isShuffle}
+        toggleShuffle={toggleShuffle}
       />
     </div>
   );

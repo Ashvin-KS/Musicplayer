@@ -1,59 +1,81 @@
 import React from 'react';
-
-const PLACEHOLDER_IMAGE = 'https://imgs.search.brave.com/_El4hVIjHgeB8y4J0ZGGx1WFMH324o5Om6622gP9JNg/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9zLndp/ZGdldC1jbHViLmNv/bS9zYW1wbGVzL0I2/aDk2UVB1MUFnYm5G/bkZpaDA2TEdQRmsx/UzIvZGVId1BzczBj/b3hRTEVINHBYUEwv/MDVCNDZDNjYtOEIz/NC00NTQ4LUE4MkQt/QzEwREIxNzlFREE2/LmpwZz9xPTcw';
-const PLACEHOLDER_TEXT = 'No track playing...';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Volume2, VolumeX } from 'lucide-react';
 
 const Playbar = ({
   isPlaying,
-  playPrev,
-  playNext,
   togglePlay,
-  toggleVideo,
-  showVideo,
+  playNext,
+  playPrev,
   currentTrack,
   progressBarRef,
-  handleProgressBarClick,
+  handleProgressClick,
   currentTime,
   duration,
-  formatTime
-}) => (
-  <div className="playbar">
-    <div className="track-info">
-      <div className="current-track-info">
-        <img
-          src={currentTrack ? currentTrack.thumbnail : PLACEHOLDER_IMAGE}
-          alt="thumb"
-        />
-        <span>{currentTrack ? currentTrack.title : PLACEHOLDER_TEXT}</span>
+  formatTime,
+  volume,
+  onVolumeChange,
+  isShuffle,
+  toggleShuffle
+}) => {
+  return (
+    <div className="playbar">
+      {/* Track Info */}
+      <div className="track-info-bar">
+        {currentTrack ? (
+          <>
+            <img src={currentTrack.thumbnail} alt="" />
+            <span>{currentTrack.title}</span>
+          </>
+        ) : (
+          <span style={{ color: '#b3b3b3' }}>No track playing</span>
+        )}
       </div>
-    </div>
-    <div className="playbar-controls">
-      <div className="playbar-buttons">
-        <button onClick={playPrev} disabled={!currentTrack}>⏮</button>
-        <button onClick={togglePlay} disabled={!currentTrack}>
-          {isPlaying ? '⏸' : '▶'}
-        </button>
-        <button onClick={playNext} disabled={!currentTrack}>⏭</button>
-      </div>
-      <div className="progress-section">
-        <span className="time">{formatTime(currentTime)}</span>
-        <div
-          className="progress-bar"
-          ref={progressBarRef}
-          onClick={handleProgressBarClick}
-        >
-          <div
-            className="progress"
-            style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
-          />
+
+      {/* Controls */}
+      <div className="playbar-controls">
+        <div className="control-buttons">
+          <button className={`control-btn ${isShuffle ? 'active' : ''}`} onClick={toggleShuffle} style={{ color: isShuffle ? '#1ed760' : '#b3b3b3' }}>
+            <Shuffle size={18} />
+          </button>
+          <button className="control-btn" onClick={playPrev}>
+            <SkipBack size={20} fill="currentColor" />
+          </button>
+          <button className="control-btn main" onClick={togglePlay} disabled={!currentTrack}>
+            {isPlaying ? <Pause size={18} fill="#000" /> : <Play size={18} fill="#000" style={{ marginLeft: 2 }} />}
+          </button>
+          <button className="control-btn" onClick={playNext}>
+            <SkipForward size={20} fill="currentColor" />
+          </button>
         </div>
-        <span className="time">{formatTime(duration)}</span>
+
+        <div className="progress-section">
+          <span className="time-display">{formatTime(currentTime)}</span>
+          <div className="progress-bar" ref={progressBarRef} onClick={handleProgressClick}>
+            <div className="progress" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }} />
+          </div>
+          <span className="time-display">{formatTime(duration)}</span>
+        </div>
+      </div>
+
+      {/* Volume */}
+      <div className="volume-section">
+        <button
+          onClick={() => onVolumeChange(volume === 0 ? 100 : 0)}
+          style={{ background: 'transparent', border: 'none', color: '#b3b3b3', cursor: 'pointer' }}
+        >
+          {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+        </button>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={volume}
+          onChange={(e) => onVolumeChange(Number(e.target.value))}
+          className="volume-slider"
+        />
       </div>
     </div>
-    <button onClick={toggleVideo} className="video-toggle" title="Toggle Video">
-      {showVideo ? '🎥' : '📺'}
-    </button>
-  </div>
-);
+  );
+};
 
 export default Playbar;

@@ -1,36 +1,45 @@
 import React from 'react';
+import { Play, Plus, Check } from 'lucide-react';
 
-const SearchResults = ({ searchResults, currentIndex, playTrack, loading, addToPlaylist, playlist, playSource }) => (
-  <div className="main-content scrollable-content">
+const SearchResults = ({ searchResults, loading, playTrack, addToPlaylist, currentTrack }) => {
+  if (loading) {
+    return <div style={{ padding: '24px', color: '#b3b3b3' }}>Searching...</div>;
+  }
+
+  if (searchResults.length === 0) {
+    return <div style={{ padding: '24px', color: '#b3b3b3' }}>No results. Try searching for something!</div>;
+  }
+
+  return (
     <div className="search-results">
-      <h2 style={{ minHeight: '2.5em', margin: 0 }}>Results</h2>
-      {loading ? <div>Loading...</div> : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {searchResults.map((item, idx) => (
-            <li key={item.id} className={playSource === 'results' && idx === currentIndex ? 'active playing-gradient' : ''}>
-              <div className="thumbnail-container">
-                <img src={item.thumbnail} alt="thumb" />
-                <button className="play-button" onClick={() => playTrack(idx)}>
-                  ▶
+      <h2>Results</h2>
+      <div className="results-grid">
+        {searchResults.map((item, idx) => {
+          const isPlaying = currentTrack?.id === item.id;
+          return (
+            <div key={item.id} className="result-card">
+              <div className="thumb-wrap">
+                <img src={item.thumbnail} alt={item.title} />
+                <button className="play-btn" onClick={() => playTrack(idx)}>
+                  <Play fill="#000" size={24} />
                 </button>
               </div>
-              
-                <span>{item.title}</span>
-               
-              <button
-                style={{ marginLeft: 8, fontSize: '1.1em', background: '#232', color: '#1db954', border: 'none', borderRadius: 4, padding: '0.2em 0.7em', cursor: 'pointer',right:"10px",position:"absolute" }}
-                onClick={() => addToPlaylist(item)}
-                disabled={playlist.some(track => track.id === item.id)}
-                title={playlist.some(track => track.id === item.id) ? 'Already in playlist' : 'Add to playlist'}
-              >
-                +
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+              <h4 style={{ color: isPlaying ? '#1ed760' : '#fff' }}>{item.title}</h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="subtitle">Song</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); addToPlaylist(item); }}
+                  style={{ background: 'transparent', border: 'none', color: '#b3b3b3', cursor: 'pointer' }}
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default SearchResults;

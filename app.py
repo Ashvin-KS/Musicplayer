@@ -2,12 +2,29 @@
 
 from flask import Flask, send_from_directory, request, jsonify, Response
 import os
+import json
 from flask_cors import CORS
 import yt_dlp
 import requests
 
 app = Flask(__name__)
 CORS(app)
+
+# File-based playlist storage (shared between music_app and NEXUS)
+PLAYLISTS_FILE = os.path.join(os.path.dirname(__file__), 'playlists.json')
+
+def load_playlists():
+    if os.path.exists(PLAYLISTS_FILE):
+        try:
+            with open(PLAYLISTS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_playlists(playlists):
+    with open(PLAYLISTS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(playlists, f, ensure_ascii=False, indent=2)
 
 # In-memory cache for audio URLs
 audio_url_cache = {}
@@ -85,6 +102,21 @@ def search():
 def fetch_playlist(playlist_id):
     results = get_playlist_items(playlist_id)
     return jsonify(results)
+
+# === SHARED PLAYLIST STORAGE ===
+@app.route('/playlists', methods=['GET'])
+def get_playlists():
+    """Returns all saved playlists (shared between music_app and NEXUS)"""
+    return jsonify(load_playlists())
+
+@app.route('/playlists', methods=['POST'])
+def update_playlists():
+    """Saves playlists (called by music_app frontend when playlists change)"""
+    data = request.get_json()
+    if data is not None:
+        save_playlists(data)
+        return jsonify({'success': True})
+    return jsonify({'error': 'Invalid data'}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))

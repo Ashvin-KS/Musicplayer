@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { Search } from 'lucide-react';
 
 const SearchBar = ({ query, setQuery, handleSearch, loading }) => (
   <form onSubmit={handleSearch} className="search-bar">
@@ -7,11 +7,10 @@ const SearchBar = ({ query, setQuery, handleSearch, loading }) => (
       type="text"
       value={query}
       onChange={e => setQuery(e.target.value)}
-      placeholder="Search YouTube..."
-      autoComplete="off"
+      placeholder="What do you want to play?"
     />
-    <button type="submit" disabled={loading} className={loading ? 'loading' : ''} onClick={() => console.log('Search button clicked')}>
-      {loading ? 'Loading...' : 'Search'}
+    <button type="submit" disabled={loading}>
+      {loading ? 'Searching...' : 'Search'}
     </button>
   </form>
 );

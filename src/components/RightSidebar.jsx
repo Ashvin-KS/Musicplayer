@@ -1,100 +1,44 @@
 import React, { useState, useEffect, memo } from 'react';
 import { getArtistDetails } from './aii';
 
-const RightSidebar = ({ 
-  showVideo, 
-  currentTrack, 
-  children
-}) => {
+const RightSidebar = ({ currentTrack, children }) => {
   const [artistInfo, setArtistInfo] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    let isCancelled = false;
-
-    if (currentTrack && currentTrack.title) {
+    let cancelled = false;
+    if (currentTrack?.title) {
       setArtistInfo(null);
-      setIsLoading(true);
-
-      const fetchArtistInfo = async () => {
-        try {
-          const info = await getArtistDetails(currentTrack.title);
-          if (!isCancelled) {
-            setArtistInfo(info || {});
-          }
-        } catch (error) {
-          console.error("RightSidebar: Failed to fetch artist info:", error);
-          if (!isCancelled) {
-            setArtistInfo({});
-          }
-        } finally {
-          if (!isCancelled) {
-            setIsLoading(false);
-          }
-        }
-      };
-
-      fetchArtistInfo();
-    } else {
-      setArtistInfo(null);
-      setIsLoading(false);
+      getArtistDetails(currentTrack.title)
+        .then(info => { if (!cancelled) setArtistInfo(info || {}); })
+        .catch(() => { if (!cancelled) setArtistInfo({}); });
     }
+    return () => { cancelled = true; };
+  }, [currentTrack?.id]);
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [currentTrack?.id, currentTrack?.title, currentTrack]);
+  const artistName = artistInfo?.artistName || currentTrack?.artist || 'Unknown Artist';
+  const artistImage = artistInfo?.artistImage || currentTrack?.thumbnail;
 
   return (
-    <div className="sidebar right-sidebar">
-      <div 
-        className="video-container"
-        style={showVideo && currentTrack ? {
-          height: '200px', 
-        } : {
-          position: 'absolute',
-          top: '-9999px',
-          left: '-9999px',
-        }}
-      >
-        {children}
-      </div>
-      
-      <div className="artist-info-container">
-        {currentTrack && (
-          <>
-            {((artistInfo && artistInfo.artistImage) || (currentTrack && currentTrack.thumbnail)) && (
-              <div className="artist-image-wrapper">
-                <img
-                  src={(artistInfo && artistInfo.artistImage) || (currentTrack && currentTrack.thumbnail)}
-                  alt={(artistInfo && artistInfo.artistName) || (currentTrack && currentTrack.artist) || "Artist"}
-                  className="artist-image"
-                />
-              </div>
+    <div className="right-sidebar">
+      {/* Hidden YouTube player */}
+      <div style={{ position: 'absolute', top: '-9999px' }}>{children}</div>
+
+      {currentTrack ? (
+        <div className="artist-card">
+          {artistImage && <img src={artistImage} alt={artistName} />}
+          <div className="artist-card-content">
+            <h3>{artistName}</h3>
+            <p>{artistInfo?.viewCount?.toLocaleString() || currentTrack.view_count?.toLocaleString() || '0'} views</p>
+            {currentTrack.description && (
+              <p style={{ marginTop: '8px' }}>{currentTrack.description}</p>
             )}
-            {isLoading && !((artistInfo && artistInfo.artistImage) || (currentTrack && currentTrack.thumbnail)) && (
-              <p>Loading artist image...</p>
-            )}
-            <h2>{(artistInfo && artistInfo.artistName) || (currentTrack && currentTrack.artist) || "Unknown Artist"}</h2>
-            {((artistInfo && artistInfo.viewCount) || (currentTrack && currentTrack.view_count)) && (
-              <p style={{ fontSize: '0.9em', color: '#ccc' }}>
-                Views: {((artistInfo && artistInfo.viewCount) || (currentTrack && currentTrack.view_count)).toLocaleString()}
-              </p>
-            )}
-          </>
-        )}
-        {currentTrack && currentTrack.description && (
-          <div className="artist-description-container" style={{ padding: '15px', overflowY: 'auto', flex: '1' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '10px', color: '#fff' }}>About the Artist</h3>
-            <p className="artist-description" style={{ fontSize: '0.9em', color: '#ccc', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-              {currentTrack.description}
-            </p>
           </div>
-        )}
-        {!currentTrack && (
-            <p>Select a track to see information.</p>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div style={{ color: '#b3b3b3', textAlign: 'center', padding: '24px' }}>
+          Play a track to see artist info
+        </div>
+      )}
     </div>
   );
 };
